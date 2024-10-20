@@ -1,65 +1,39 @@
-const express = require('express');
-const fs = require('fs');
-const router = express.Router();
-const path = './data/products.json';
+import { Router } from 'express';
+import fs from 'fs/promises';
+import path from 'path';
 
-// Obtener todos los productos (con limitación opcional)
-router.get('/', (req, res) => {
-  const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
-  fs.readFile(path, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error al leer los productos');
-    let products = JSON.parse(data);
-    if (limit) products = products.slice(0, limit);
-    res.json(products);
-  });
-});
+const router = Router();
+const productsFilePath = path.resolve('products.json');
 
-// Obtener un producto por ID
-router.get('/:pid', (req, res) => {
-  const pid = req.params.pid;
-  fs.readFile(path, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error al leer los productos');
+// Función para obtener el próximo ID disponible
+const getNextId = async () => {
+  const data = await fs.readFile(productsFilePath, 'utf-8');
+  const products = JSON.parse(data);
+  return products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
+};
+
+// POST: Crear un nuevo producto
+router.post('/', async (req, res) => {
+  const { title, description, code, price, status = true, stock, category, thumbnails } = req.body;
+  
+  if (!title || !description || !code || !price || !stock || !category) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios.' });
+  }
+
+  try {
+    const newId = await getNextId();
+    const newProduct = { id: newId, title, description, code, price, status, stock, category, thumbnails };
+
+    const data = await fs.readFile(productsFilePath, 'utf-8');
     const products = JSON.parse(data);
-    const product = products.find(p => p.id == pid);
-    if (!product) return res.status(404).send('Producto no encontrado');
-    res.json(product);
-  });
+
+    products.push(newProduct);
+    await fs.writeFile(productsFilePath, JSON.stringify(products, null, 2));
+
+    res.status(201).json({ message: 'Producto creado con éxito', product: newProduct });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al crear el producto.' });
+  }
 });
 
-// Actualizar un producto por ID
-router.put('/:pid', (req, res) => {
-  const pid = req.params.pid;
-  const updatedProduct = req.body;
-  fs.readFile(path, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error al leer los productos');
-    let products = JSON.parse(data);
-    const productIndex = products.findIndex(p => p.id == pid);
-    if (productIndex === -1) return res.status(404).send('Producto no encontrado');
-    
-    // Mantener el id del producto
-    updatedProduct.id = pid;
-    products[productIndex] = { ...products[productIndex], ...updatedProduct };
-
-    fs.writeFile(path, JSON.stringify(products), (err) => {
-      if (err) return res.status(500).send('Error al actualizar el producto');
-      res.send('Producto actualizado con éxito');
-    });
-  });
-});
-
-// Eliminar un producto por ID
-router.delete('/:pid', (req, res) => {
-  const pid = req.params.pid;
-  fs.readFile(path, 'utf8', (err, data) => {
-    if (err) return res.status(500).send('Error al leer los productos');
-    let products = JSON.parse(data);
-    products = products.filter(p => p.id != pid);
-
-    fs.writeFile(path, JSON.stringify(products), (err) => {
-      if (err) return res.status(500).send('Error al eliminar el producto');
-      res.send('Producto eliminado con éxito');
-    });
-  });
-});
-
-module.exports = router;
+export default router;

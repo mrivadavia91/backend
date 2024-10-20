@@ -1,4 +1,4 @@
-const express = require('express');
+import express from 'express';
 const fs = require('fs');
 const router = express.Router();
 const path = './data/carts.json';
