@@ -1,65 +1,22 @@
 import express from 'express';
-import { createServer } from 'http';  
-import { Server as SocketIO } from 'socket.io';  
-import { engine } from 'express-handlebars';
-import productsRouter from './routes/products.js';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs/promises';  // Importar fs/promises
-
-// Configurar __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import productsRouter from './routes/productsRouter.js';
+import cartsRouter from './routes/cartsRouter.js';
+import mongoose from 'mongoose';
 
 const app = express();
-const httpServer = createServer(app);  
-const io = new SocketIO(httpServer);
-
-// Configurar Handlebars como motor de plantillas
-app.engine('handlebars', engine());
-app.set('view engine', 'handlebars');
-app.set('views', path.join(__dirname, 'views'));
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// Static files
-// app.use(express.static(path.join(__dirname, 'public')));
+// Conexión a MongoDB 
+const mongoURI = 'mongodb+srv://dbUser:dbUserPassword@cluster0.hakta.mongodb.net/Proyecto 0?retryWrites=true&w=majority&appName=Cluster0';
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('Conectado a MongoDB'))
+    .catch(error => console.error('Error conectando a MongoDB:', error));
 
-// Rutas
-app.use('/api/products', productsRouter);
+// Montar las rutas para productos y carritos
+app.use('/products', productsRouter);
+app.use('/api/carts', cartsRouter);
 
-// Vista home
-app.get('/', async (req, res) => {
-  const products = JSON.parse(await fs.readFile(path.join(__dirname,'data', 'products.json'), 'utf-8'));
-  res.render('home', { products });
-});
-
-// Vista realtime
-app.get('/realtimeproducts', async (req, res) => {
-  const products = JSON.parse(await fs.readFile(path.join(__dirname,'data', 'products.json'), 'utf-8'));
-  res.render('realTimeProducts', { products });
-});
-
-// Socket.io
-io.on('connection', (socket) => {
-  console.log('Usuario conectado via WebSocket');
-  socket.on('newProduct', async (product) => {
-    const products = JSON.parse(await fs.readFile(path.join(__dirname, 'products.json'), 'utf-8'));
-    products.push(product);
-    await fs.writeFile(path.join(__dirname,'data', 'products.json'), JSON.stringify(products, null, 2));
-    io.emit('updateProducts', products);
-  });
-
-  socket.on('deleteProduct', async (id) => {
-    let products = JSON.parse(await fs.readFile(path.join(__dirname,'data', 'products.json'), 'utf-8'));
-    products = products.filter(p => p.id !== id);
-    await fs.writeFile(path.join(__dirname,'data', 'products.json'), JSON.stringify(products, null, 2));
-    io.emit('updateProducts', products);
-  });
-});
-
-const PORT = 8080;
-httpServer.listen(PORT, () => {
-  console.log(`Servidor escuchando en el puerto ${PORT}`);
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+    console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
