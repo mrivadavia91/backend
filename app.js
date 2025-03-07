@@ -5,6 +5,7 @@ import './config/passportStrategies.js';
 import sessionsRouter from './routes/sessionsRouter.js';
 import productsRouter from './routes/productsRouter.js';
 import cartsRouter from './routes/cartsRouter.js';
+import mocksRouter from './routes/mocks.router.js';
 
 const app = express();
 
@@ -17,5 +18,10 @@ app.use(passport.initialize());
 app.use('/api/sessions', sessionsRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/carts', cartsRouter);
+app.use('/api/mocks', mocksRouter);
 
 app.listen(8080, () => console.log('Servidor corriendo en el puerto 8080'));
+
+
+
+
